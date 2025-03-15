@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>French Prepositions Connect 4</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #f0f8ff;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: #87CEEB;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(7, 60px);
+            grid-template-rows: repeat(6, 60px);
+            gap: 5px;
+            background: #1E90FF;
+            padding: 10px;
+            border-radius: 5px;
+            position: relative;
+        }
+
+        .cell {
+            width: 60px;
+            height: 60px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .player { background: #FF6B6B; }
+        .computer { background: #FFD700; }
+
+        .question-box {
+            margin: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #32CD32;
+            border: none;
+            border-radius: 5px;
+            color: white;
+        }
+
+        #status {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>French Prepositions Connect 4</h1>
+    <div class="game-container">
+        <div class="grid" id="grid"></div>
+        <div class="question-box" id="questionBox">
+            <p id="questionText">Select a column to start!</p>
+        </div>
+        <button onclick="startNewGame()">New Game</button>
+        <p id="status">Player's Turn</p>
+    </div>
+
+    <script>
+        const prepositions = [
+            { question: "Le chat est ___ la table", options: ["sur", "dans", "sous"], answer: "sur" },
+            { question: "Le livre est ___ le sac", options: ["devant", "dans", "derrière"], answer: "dans" },
+            { question: "La voiture est ___ la maison", options: ["à côté de", "sur", "entre"], answer: "à côté de" },
+            { question: "Les clés sont ___ mon sac", options: ["dans", "sur", "sous"], answer: "dans" },
+            { question: "Nous marchons ___ le parc", options: ["dans", "sur", "sous"], answer: "dans" },
+            { question: "Le tableau est ___ le mur", options: ["sur", "devant", "derrière"], answer: "sur" },
+            { question: "Je suis assis ___ toi", options: ["à côté de", "dans", "sous"], answer: "à côté de" },
+            { question: "Le chien dort ___ le lit", options: ["sous", "sur", "entre"], answer: "sous" },
+            { question: "La lampe est ___ la table", options: ["sur", "dans", "derrière"], answer: "sur" },
+            { question: "Le supermarché est ___ la banque", options: ["près de", "dans", "sous"], answer: "près de" },
+            { question: "Les fleurs sont ___ le vase", options: ["dans", "sur", "sous"], answer: "dans" },
+            { question: "Le crayon est ___ les livres", options: ["entre", "dans", "devant"], answer: "entre" },
+            { question: "Nous voyageons ___ train", options: ["en", "à", "dans"], answer: "en" },
+            { question: "Il marche ___ l'école", options: ["vers", "dans", "sur"], answer: "vers" },
+            { question: "Le cadeau est ___ l'emballage", options: ["dans", "sous", "derrière"], answer: "dans" },
+            { question: "La souris est ___ le chat", options: ["derrière", "devant", "sur"], answer: "derrière" },
+            { question: "Les oiseaux volent ___ le ciel", options: ["dans", "sur", "sous"], answer: "dans" },
+            { question: "Je travaille ___ 8 heures", options: ["depuis", "pendant", "à"], answer: "depuis" },
+            { question: "Elle parle ___ téléphone", options: ["au", "dans le", "sur le"], answer: "au" },
+            { question: "Nous sommes ___ France", options: ["en", "à", "sur"], answer: "en" },
+            { question: "Le café est ___ la tasse", options: ["dans", "sur", "sous"], answer: "dans" },
+            { question: "Il y a un arbre ___ la maison", options: ["devant", "devant", "derrière"], answer: "devant" },
+            { question: "Le papier est ___ le livre", options: ["sous", "sur", "dans"], answer: "sous" },
+            { question: "Je vais ___ Canada", options: ["au", "en", "à"], answer: "au" },
+            { question: "Les enfants jouent ___ le jardin", options: ["dans", "sur", "sous"], answer: "dans" },
+            { question: "La réponse est ___ la question", options: ["dans", "sur", "sous"], answer: "dans" },
+            { question: "Nous partons ___ vacances", options: ["en", "à", "dans"], answer: "en" },
+            { question: "Le tableau est ___ le canapé", options: ["au-dessus du", "sous le", "dans le"], answer: "au-dessus du" },
+            { question: "Il y a un parc ___ l'immeuble", options: ["près de", "dans", "sur"], answer: "près de" },
+            { question: "Je suis ___ Paris", options: ["à", "en", "dans"], answer: "à" },
+            { question: "Le restaurant est ___ la rue", options: ["de l'autre côté de", "dans", "sous"], answer: "de l'autre côté de" }
+        ];
+
+        let currentPlayer = 'player';
+        let gameBoard = [];
+        let gameActive = false;
+        const rows = 6;
+        const columns = 7;
+
+        function createGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            gameBoard = Array(rows).fill().map(() => Array(columns).fill(null));
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < columns; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        function handleColumnClick(col) {
+            if (!gameActive || currentPlayer !== 'player') return;
+
+            const row = getLowestEmptyRow(col);
+            if (row === -1) return;
+
+            showQuestion(col, row);
+        }
+
+        function getLowestEmptyRow(col) {
+            for (let row = rows - 1; row >= 0; row--) {
+                if (!gameBoard[row][col]) return row;
+            }
+            return -1;
+        }
+
+        function showQuestion(col, row) {
+            const randomQ = prepositions[Math.floor(Math.random() * prepositions.length)];
+            const questionText = document.getElementById('questionText');
+            questionText.innerHTML = `
+                ${randomQ.question}<br><br>
+                ${randomQ.options.map(opt => 
+                    `<button onclick="handleAnswer(${col}, ${row}, '${opt}', '${randomQ.answer}')">${opt}</button>`
+                ).join(' ')}
+            `;
+        }
+
+        function handleAnswer(col, row, selected, correct) {
+            if (selected === correct) {
+                placeToken(col, row, 'player');
+                if (checkWin(row, col, 'player')) {
+                    endGame('Player wins!');
+                    return;
+                }
+                currentPlayer = 'computer';
+                document.getElementById('status').textContent = "Computer's Turn";
+                setTimeout(computerMove, 1000);
+            } else {
+                alert("Incorrect! Try another column.");
+            }
+            document.getElementById('questionText').innerHTML = '';
+        }
+
+        function computerMove() {
+            const availableColumns = [];
+            for (let col = 0; col < columns; col++) {
+                if (getLowestEmptyRow(col) !== -1) availableColumns.push(col);
+            }
+
+            if (availableColumns.length > 0) {
+                const randomCol = availableColumns[Math.floor(Math.random() * availableColumns.length)];
+                const row = getLowestEmptyRow(randomCol);
+                placeToken(randomCol, row, 'computer');
+                
+                if (checkWin(row, randomCol, 'computer')) {
+                    endGame('Computer wins!');
+                    return;
+                }
+                currentPlayer = 'player';
+                document.getElementById('status').textContent = "Player's Turn";
+            }
+        }
+
+        function placeToken(col, row, player) {
+            gameBoard[row][col] = player;
+            const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+            cell.classList.add(player);
+        }
+
+        function checkWin(row, col, player) {
+            // Horizontal check
+            let count = 0;
+            for (let c = 0; c < columns; c++) {
+                count = gameBoard[row][c] === player ? count + 1 : 0;
+                if (count >= 4) return true;
+            }
+
+            // Vertical check
+            count = 0;
+            for (let r = 0; r < rows; r++) {
+                count = gameBoard[r][col] === player ? count + 1 : 0;
+                if (count >= 4) return true;
+            }
+
+            // Diagonal check (positive slope)
+            count = 0;
+            let startRow = Math.max(row - col, 0);
+            let startCol = Math.max(col - row, 0);
+            while (startRow < rows && startCol < columns) {
+                count = gameBoard[startRow][startCol] === player ? count + 1 : 0;
+                if (count >= 4) return true;
+                startRow++;
+                startCol++;
+            }
+
+            // Diagonal check (negative slope)
+            count = 0;
+            startRow = Math.min(row + col, rows - 1);
+            startCol = Math.max(col - (rows - 1 - row), 0);
+            while (startRow >= 0 && startCol < columns) {
+                count = gameBoard[startRow][startCol] === player ? count + 1 : 0;
+                if (count >= 4) return true;
+                startRow--;
+                startCol++;
+            }
+
+            return false;
+        }
+
+        function endGame(message) {
+            gameActive = false;
+            alert(message);
+            document.getElementById('status').textContent = message;
+        }
+
+        function startNewGame() {
+            gameActive = true;
+            currentPlayer = 'player';
+            createGrid();
+            document.getElementById('status').textContent = "Player's Turn";
+            document.getElementById('questionText').innerHTML = '';
+        }
+
+        // Initialize game
+        document.getElementById('grid').addEventListener('click', (e) => {
+            if (e.target.classList.contains('cell')) {
+                const col = parseInt(e.target.dataset.col);
+                handleColumnClick(col);
+            }
+        });
+
+        startNewGame();
+    </script>
+</body>
+</html>
