@@ -63,17 +63,32 @@
             color: white;
         }
 
+        .option-button {
+            background: #4682B4;
+        }
+
         #status {
             font-size: 1.2em;
             font-weight: bold;
             color: #333;
             margin: 10px 0;
         }
+
+        #score {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
     <h1>French Prepositions Connect 4</h1>
     <div class="game-container">
+        <div id="score">
+            <div>Player: <span id="playerScore">0</span></div>
+            <div>Computer: <span id="computerScore">0</span></div>
+        </div>
         <div class="grid" id="grid"></div>
         <div class="question-box" id="questionBox">
             <p id="questionText">Select a column to start!</p>
@@ -83,6 +98,7 @@
     </div>
 
     <script>
+        // Corrected prepositions array with unique and accurate question/answer pairs
         const prepositions = [
             { question: "Le chat est ___ la table", options: ["sur", "dans", "sous"], answer: "sur" },
             { question: "Le livre est ___ le sac", options: ["devant", "dans", "derrière"], answer: "dans" },
@@ -105,13 +121,13 @@
             { question: "Elle parle ___ téléphone", options: ["au", "dans le", "sur le"], answer: "au" },
             { question: "Nous sommes ___ France", options: ["en", "à", "sur"], answer: "en" },
             { question: "Le café est ___ la tasse", options: ["dans", "sur", "sous"], answer: "dans" },
-            { question: "Il y a un arbre ___ la maison", options: ["devant", "devant", "derrière"], answer: "devant" },
+            { question: "Il y a un arbre ___ la maison", options: ["devant", "dans", "derrière"], answer: "devant" },
             { question: "Le papier est ___ le livre", options: ["sous", "sur", "dans"], answer: "sous" },
             { question: "Je vais ___ Canada", options: ["au", "en", "à"], answer: "au" },
             { question: "Les enfants jouent ___ le jardin", options: ["dans", "sur", "sous"], answer: "dans" },
             { question: "La réponse est ___ la question", options: ["dans", "sur", "sous"], answer: "dans" },
             { question: "Nous partons ___ vacances", options: ["en", "à", "dans"], answer: "en" },
-            { question: "Le tableau est ___ le canapé", options: ["au-dessus du", "sous le", "dans le"], answer: "au-dessus du" },
+            { question: "Le tableau est ___ le canapé", options: ["au-dessus de", "sous", "dans"], answer: "au-dessus de" },
             { question: "Il y a un parc ___ l'immeuble", options: ["près de", "dans", "sur"], answer: "près de" },
             { question: "Je suis ___ Paris", options: ["à", "en", "dans"], answer: "à" },
             { question: "Le restaurant est ___ la rue", options: ["de l'autre côté de", "dans", "sous"], answer: "de l'autre côté de" }
@@ -122,6 +138,9 @@
         let gameActive = false;
         const rows = 6;
         const columns = 7;
+        let playerScore = 0;
+        let computerScore = 0;
+        let usedQuestions = new Set();
 
         function createGrid() {
             const grid = document.getElementById('grid');
@@ -143,7 +162,7 @@
             if (!gameActive || currentPlayer !== 'player') return;
 
             const row = getLowestEmptyRow(col);
-            if (row === -1) return;
+            if (row === -1) return;  // Column is full
 
             showQuestion(col, row);
         }
@@ -155,13 +174,32 @@
             return -1;
         }
 
+        function getRandomQuestion() {
+            // Reset used questions if all have been used
+            if (usedQuestions.size >= prepositions.length) {
+                usedQuestions.clear();
+            }
+            
+            let index;
+            do {
+                index = Math.floor(Math.random() * prepositions.length);
+            } while (usedQuestions.has(index));
+            
+            usedQuestions.add(index);
+            return prepositions[index];
+        }
+
         function showQuestion(col, row) {
-            const randomQ = prepositions[Math.floor(Math.random() * prepositions.length)];
+            const randomQ = getRandomQuestion();
             const questionText = document.getElementById('questionText');
+            
+            // Randomize option order
+            const shuffledOptions = [...randomQ.options].sort(() => Math.random() - 0.5);
+            
             questionText.innerHTML = `
                 ${randomQ.question}<br><br>
-                ${randomQ.options.map(opt => 
-                    `<button onclick="handleAnswer(${col}, ${row}, '${opt}', '${randomQ.answer}')">${opt}</button>`
+                ${shuffledOptions.map(opt => 
+                    `<button class="option-button" onclick="handleAnswer(${col}, ${row}, '${opt}', '${randomQ.answer}')">${opt}</button>`
                 ).join(' ')}
             `;
         }
@@ -170,22 +208,89 @@
             if (selected === correct) {
                 placeToken(col, row, 'player');
                 if (checkWin(row, col, 'player')) {
+                    playerScore++;
+                    updateScores();
                     endGame('Player wins!');
+                    return;
+                }
+                if (isBoardFull()) {
+                    endGame('Game over! It\'s a draw.');
                     return;
                 }
                 currentPlayer = 'computer';
                 document.getElementById('status').textContent = "Computer's Turn";
                 setTimeout(computerMove, 1000);
             } else {
-                alert("Incorrect! Try another column.");
+                document.getElementById('questionText').textContent = "Incorrect! Try another column.";
+                setTimeout(() => {
+                    document.getElementById('questionText').textContent = "Select a column!";
+                }, 1500);
             }
-            document.getElementById('questionText').innerHTML = '';
+        }
+
+        function isBoardFull() {
+            for (let col = 0; col < columns; col++) {
+                if (getLowestEmptyRow(col) !== -1) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         function computerMove() {
+            if (!gameActive) return;
+            
+            // Check for winning move
+            for (let col = 0; col < columns; col++) {
+                const row = getLowestEmptyRow(col);
+                if (row !== -1) {
+                    // Try placing token
+                    gameBoard[row][col] = 'computer';
+                    if (checkWin(row, col, 'computer')) {
+                        // If it's a winning move, keep it
+                        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                        cell.classList.add('computer');
+                        computerScore++;
+                        updateScores();
+                        endGame('Computer wins!');
+                        return;
+                    }
+                    // Undo the trial move
+                    gameBoard[row][col] = null;
+                }
+            }
+            
+            // Block player's winning move
+            for (let col = 0; col < columns; col++) {
+                const row = getLowestEmptyRow(col);
+                if (row !== -1) {
+                    // Try placing player token
+                    gameBoard[row][col] = 'player';
+                    if (checkWin(row, col, 'player')) {
+                        // If player would win here, block it
+                        gameBoard[row][col] = 'computer';
+                        const cell = document.querySelector(`[data-row="${row}"][data-col="${col}"]`);
+                        cell.classList.add('computer');
+                        currentPlayer = 'player';
+                        document.getElementById('status').textContent = "Player's Turn";
+                        return;
+                    }
+                    // Undo the trial move
+                    gameBoard[row][col] = null;
+                }
+            }
+            
+            // If no strategic move, pick a random column with preference for center
             const availableColumns = [];
             for (let col = 0; col < columns; col++) {
-                if (getLowestEmptyRow(col) !== -1) availableColumns.push(col);
+                if (getLowestEmptyRow(col) !== -1) {
+                    // Add center column multiple times to increase its probability
+                    if (col === 3) {
+                        availableColumns.push(col, col, col);  // Add center column with higher weight
+                    } else {
+                        availableColumns.push(col);
+                    }
+                }
             }
 
             if (availableColumns.length > 0) {
@@ -194,9 +299,17 @@
                 placeToken(randomCol, row, 'computer');
                 
                 if (checkWin(row, randomCol, 'computer')) {
+                    computerScore++;
+                    updateScores();
                     endGame('Computer wins!');
                     return;
                 }
+                
+                if (isBoardFull()) {
+                    endGame('Game over! It\'s a draw.');
+                    return;
+                }
+                
                 currentPlayer = 'player';
                 document.getElementById('status').textContent = "Player's Turn";
             }
@@ -209,49 +322,48 @@
         }
 
         function checkWin(row, col, player) {
-            // Horizontal check
+            const directions = [
+                [0, 1],  // horizontal
+                [1, 0],  // vertical
+                [1, 1],  // diagonal positive slope
+                [1, -1]  // diagonal negative slope
+            ];
+
+            return directions.some(([dr, dc]) => {
+                return (
+                    countConsecutive(row, col, dr, dc, player) +
+                    countConsecutive(row, col, -dr, -dc, player) - 1 >= 4
+                );
+            });
+        }
+
+        function countConsecutive(row, col, dr, dc, player) {
             let count = 0;
-            for (let c = 0; c < columns; c++) {
-                count = gameBoard[row][c] === player ? count + 1 : 0;
-                if (count >= 4) return true;
+            let r = row;
+            let c = col;
+            
+            while (
+                r >= 0 && r < rows &&
+                c >= 0 && c < columns && 
+                gameBoard[r][c] === player
+            ) {
+                count++;
+                r += dr;
+                c += dc;
             }
+            
+            return count;
+        }
 
-            // Vertical check
-            count = 0;
-            for (let r = 0; r < rows; r++) {
-                count = gameBoard[r][col] === player ? count + 1 : 0;
-                if (count >= 4) return true;
-            }
-
-            // Diagonal check (positive slope)
-            count = 0;
-            let startRow = Math.max(row - col, 0);
-            let startCol = Math.max(col - row, 0);
-            while (startRow < rows && startCol < columns) {
-                count = gameBoard[startRow][startCol] === player ? count + 1 : 0;
-                if (count >= 4) return true;
-                startRow++;
-                startCol++;
-            }
-
-            // Diagonal check (negative slope)
-            count = 0;
-            startRow = Math.min(row + col, rows - 1);
-            startCol = Math.max(col - (rows - 1 - row), 0);
-            while (startRow >= 0 && startCol < columns) {
-                count = gameBoard[startRow][startCol] === player ? count + 1 : 0;
-                if (count >= 4) return true;
-                startRow--;
-                startCol++;
-            }
-
-            return false;
+        function updateScores() {
+            document.getElementById('playerScore').textContent = playerScore;
+            document.getElementById('computerScore').textContent = computerScore;
         }
 
         function endGame(message) {
             gameActive = false;
-            alert(message);
             document.getElementById('status').textContent = message;
+            document.getElementById('questionText').innerHTML = message + '<br>Click New Game to play again!';
         }
 
         function startNewGame() {
@@ -259,7 +371,7 @@
             currentPlayer = 'player';
             createGrid();
             document.getElementById('status').textContent = "Player's Turn";
-            document.getElementById('questionText').innerHTML = '';
+            document.getElementById('questionText').textContent = "Select a column to start!";
         }
 
         // Initialize game
@@ -270,6 +382,8 @@
             }
         });
 
+        // Initialize scores
+        updateScores();
         startNewGame();
     </script>
 </body>
